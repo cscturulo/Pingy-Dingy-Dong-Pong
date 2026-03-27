@@ -5,417 +5,589 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>PING PONG</title>
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root { --btn-gap: 7px; }
 
         body {
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            min-height: 100dvh;
             background: #000;
             font-family: 'Courier New', monospace;
             overflow: hidden;
             touch-action: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 100vw;
+            height: 100dvh;
         }
 
-        .game-container {
+        /* ── PORTRAIT layout ── */
+        #layout {
             display: flex;
             flex-direction: column;
             align-items: center;
-            gap: 6px;
+            gap: 5px;
             width: 100%;
+            height: 100%;
             padding: 4px;
+        }
+
+        #topBar {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            flex-shrink: 0;
         }
 
         .scoreboard {
             display: flex;
-            gap: 80px;
+            gap: 60px;
             color: #fff;
-            font-size: clamp(28px, 8vw, 48px);
+            font-size: clamp(26px, 7vw, 44px);
             font-weight: bold;
             text-shadow: 0 0 10px #fff;
-            letter-spacing: 8px;
+            letter-spacing: 6px;
         }
 
-        .score { min-width: 50px; text-align: center; }
+        #canvasWrap {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 0;
+        }
 
         #gameCanvas {
             border: 3px solid #fff;
             image-rendering: pixelated;
-            max-width: 100%;
+            display: block;
             touch-action: none;
-            cursor: none;
         }
 
-        .power-display {
-            color: #ff0;
-            font-size: clamp(10px, 3vw, 13px);
-            text-shadow: 0 0 8px #ff0;
-            height: 18px;
-            text-align: center;
-        }
-
-        .instructions {
-            color: #888;
-            font-size: clamp(9px, 2.5vw, 11px);
-            text-align: center;
-        }
-
-        /* On-screen power buttons */
-        .power-buttons {
+        #bottomBar {
             display: flex;
-            gap: 8px;
+            flex-direction: column;
+            align-items: center;
+            gap: 5px;
+            flex-shrink: 0;
+        }
+
+        #powerDisplay {
+            color: #ff0;
+            font-size: clamp(9px, 2.5vw, 12px);
+            text-shadow: 0 0 8px #ff0;
+            height: 16px;
+            text-align: center;
+        }
+
+        #info {
+            color: #555;
+            font-size: clamp(8px, 2vw, 10px);
+            text-align: center;
+        }
+
+        .btn-row {
+            display: flex;
+            gap: var(--btn-gap);
             flex-wrap: wrap;
             justify-content: center;
-            margin-top: 4px;
         }
 
+        /* ── LANDSCAPE layout ── */
+        @media (orientation: landscape) {
+            #layout {
+                flex-direction: row;
+                padding: 3px 4px;
+                gap: 6px;
+            }
+
+            #topBar {
+                display: none; /* score moves into sidePanel */
+            }
+
+            #sidePanel {
+                display: flex !important;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                gap: 8px;
+                flex-shrink: 0;
+                width: clamp(80px, 18vw, 110px);
+            }
+
+            #sidePanelScore {
+                display: flex !important;
+                flex-direction: column;
+                align-items: center;
+                gap: 0;
+                color: #fff;
+                font-size: clamp(22px, 5vw, 36px);
+                font-weight: bold;
+                text-shadow: 0 0 8px #fff;
+                letter-spacing: 4px;
+                line-height: 1;
+            }
+
+            #sidePanelScore span { display: block; text-align: center; }
+            #sidePanelScore .divider { font-size: 14px; color: #555; margin: 3px 0; }
+
+            .btn-row {
+                flex-direction: column;
+                gap: var(--btn-gap);
+            }
+
+            #bottomBar {
+                display: none !important;
+            }
+
+            #canvasWrap {
+                flex: 1;
+            }
+        }
+
+        /* ── Shared button styles ── */
         .power-btn {
-            padding: 10px 14px;
-            border: 2px solid;
-            background: rgba(0,0,0,0.7);
+            padding: 9px 10px;
+            border: 2px solid currentColor;
+            background: rgba(0,0,0,0.75);
             color: inherit;
             font-family: 'Courier New', monospace;
-            font-size: clamp(10px, 2.8vw, 12px);
+            font-size: clamp(9px, 2.2vw, 11px);
             font-weight: bold;
             border-radius: 6px;
             cursor: pointer;
             user-select: none;
             -webkit-user-select: none;
-            text-shadow: 0 0 6px currentColor;
-            box-shadow: 0 0 6px currentColor;
-            min-width: 80px;
+            text-shadow: 0 0 5px currentColor;
+            box-shadow: 0 0 5px currentColor;
             text-align: center;
-            transition: opacity 0.1s;
-            letter-spacing: 1px;
+            letter-spacing: 0.5px;
+            white-space: nowrap;
+            transition: opacity 0.1s, transform 0.1s;
         }
+        .power-btn:active { opacity: 0.55; transform: scale(0.93); }
 
-        .power-btn:active { opacity: 0.6; transform: scale(0.95); }
-        .power-btn.disabled { opacity: 0.3; pointer-events: none; }
+        .btn-2x  { color: #0ff; }
+        .btn-3x  { color: #f0f; }
+        .btn-4x  { color: #ff0; }
+        .btn-crv { color: #0f0; }
+        .btn-gyro { color: #fff; }
+        .btn-gyro.active { color: #0ff; box-shadow: 0 0 10px #0ff; border-color: #0ff; }
 
-        .btn-2x  { color: #0ff; border-color: #0ff; }
-        .btn-3x  { color: #f0f; border-color: #f0f; }
-        .btn-4x  { color: #ff0; border-color: #ff0; }
-        .btn-crv { color: #0f0; border-color: #0f0; }
+        /* ── Side panel hidden by default ── */
+        #sidePanel { display: none; }
+        #sidePanelScore { display: none; }
     </style>
 </head>
 <body>
-    <div class="game-container">
-        <div class="scoreboard">
-            <span id="playerScore" class="score">0</span>
-            <span id="aiScore" class="score">0</span>
+<div id="layout">
+    <!-- LANDSCAPE ONLY: left side panel -->
+    <div id="sidePanel">
+        <div id="sidePanelScore">
+            <span id="scoreP2">0</span>
+            <span class="divider">—</span>
+            <span id="scoreA2">0</span>
         </div>
-        <canvas id="gameCanvas"></canvas>
-        <div class="power-display" id="powerDisplay"></div>
-        <div class="instructions">FIRST TO 7 WINS &nbsp;|&nbsp; DRAG TO MOVE PADDLE</div>
-        <div class="power-buttons">
-            <button class="power-btn btn-2x"  id="btn2x">⚡ 2X SPEED</button>
-            <button class="power-btn btn-3x"  id="btn3x">⚡ 3X SPEED</button>
-            <button class="power-btn btn-4x"  id="btn4x">⚡ 4X SPEED</button>
-            <button class="power-btn btn-crv" id="btnCrv">🌀 CURVE</button>
+        <div id="powerDisplay2" style="color:#ff0;font-size:10px;text-align:center;height:14px;text-shadow:0 0 6px #ff0;"></div>
+        <div class="btn-row" id="btnRow2">
+            <button class="power-btn btn-gyro" id="btnGyro2">🌀 GYRO</button>
+            <button class="power-btn btn-2x"  id="btn2x2">⚡ 2X</button>
+            <button class="power-btn btn-3x"  id="btn3x2">⚡ 3X</button>
+            <button class="power-btn btn-4x"  id="btn4x2">⚡ 4X</button>
+            <button class="power-btn btn-crv" id="btnCrv2">🌀 CURVE</button>
         </div>
     </div>
 
-    <script>
-        const canvas = document.getElementById('gameCanvas');
-        const ctx = canvas.getContext('2d');
-        const playerScoreEl = document.getElementById('playerScore');
-        const aiScoreEl = document.getElementById('aiScore');
-        const powerDisplay = document.getElementById('powerDisplay');
+    <!-- Canvas -->
+    <div id="canvasWrap">
+        <canvas id="gameCanvas"></canvas>
+    </div>
 
-        // Internal game resolution
-        const GW = 640, GH = 400;
-        canvas.width = GW;
-        canvas.height = GH;
+    <!-- PORTRAIT ONLY: top bar + bottom bar -->
+    <div id="topBar">
+        <div class="scoreboard">
+            <span id="scoreP">0</span>
+            <span style="color:#444">—</span>
+            <span id="scoreA">0</span>
+        </div>
+    </div>
 
-        // Scale canvas to fit screen
-        function resizeCanvas() {
-            const maxW = window.innerWidth - 8;
-            const maxH = window.innerHeight - 220; // room for buttons
-            const scale = Math.min(maxW / GW, maxH / GH, 1);
-            canvas.style.width  = Math.floor(GW * scale) + 'px';
-            canvas.style.height = Math.floor(GH * scale) + 'px';
+    <div id="bottomBar">
+        <div id="powerDisplay" style="color:#ff0;font-size:clamp(9px,2.5vw,12px);text-shadow:0 0 8px #ff0;height:16px;text-align:center;"></div>
+        <div class="btn-row">
+            <button class="power-btn btn-gyro" id="btnGyro">🌀 GYRO</button>
+            <button class="power-btn btn-2x"  id="btn2x">⚡ 2X</button>
+            <button class="power-btn btn-3x"  id="btn3x">⚡ 3X</button>
+            <button class="power-btn btn-4x"  id="btn4x">⚡ 4X</button>
+            <button class="power-btn btn-crv" id="btnCrv">🌀 CURVE</button>
+        </div>
+        <div id="info" style="color:#555;font-size:clamp(8px,2vw,10px);">DRAG TO MOVE PADDLE · FIRST TO 7 WINS</div>
+    </div>
+</div>
+
+<script>
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+
+// Internal resolution
+const GW = 640, GH = 400;
+canvas.width = GW; canvas.height = GH;
+
+// Score elements (portrait + landscape)
+const scorePEls = [document.getElementById('scoreP'), document.getElementById('scoreP2')];
+const scoreAEls = [document.getElementById('scoreA'), document.getElementById('scoreA2')];
+const powerEls  = [document.getElementById('powerDisplay'), document.getElementById('powerDisplay2')];
+
+function setScore(p, a) {
+    scorePEls.forEach(el => { if (el) el.textContent = p; });
+    scoreAEls.forEach(el => { if (el) el.textContent = a; });
+}
+function setPowerText(t, color) {
+    powerEls.forEach(el => { if (el) { el.textContent = t; el.style.color = color; } });
+}
+
+// ── Canvas sizing ───────────────────────────────────────────────────────────
+function resizeCanvas() {
+    const wrap = document.getElementById('canvasWrap');
+    const wrapW = wrap.clientWidth;
+    const wrapH = wrap.clientHeight;
+    const scale = Math.min(wrapW / GW, wrapH / GH);
+    canvas.style.width  = Math.floor(GW * scale) + 'px';
+    canvas.style.height = Math.floor(GH * scale) + 'px';
+}
+window.addEventListener('resize', () => { resizeCanvas(); });
+// Use timeout to let layout settle after orientation change
+window.addEventListener('orientationchange', () => setTimeout(resizeCanvas, 150));
+setTimeout(resizeCanvas, 50);
+
+// ── Game state ──────────────────────────────────────────────────────────────
+const PADDLE_W = 12, PADDLE_H = 60, BALL_SIZE = 8, WINNING_SCORE = 7;
+const POWER_DURATION = 800, CURVE_DURATION = 600;
+
+let playerY = GH / 2 - PADDLE_H / 2;
+let aiY     = GH / 2 - PADDLE_H / 2;
+let ballX = GW / 2, ballY = GH / 2;
+let ballVX = 4, ballVY = 2, ballCurve = 0;
+let playerScore = 0, aiScore = 0;
+let gameRunning = false, gameOver = false, paused = false;
+let inputY = GH / 2; // unified input position (touch or gyro mapped to canvas Y)
+
+let powerUpActive = false, powerMultiplier = 1, powerEndTime = 0;
+let curveActive = false, curveEndTime = 0, curveDirection = 0;
+
+// ── Gyroscope ───────────────────────────────────────────────────────────────
+let gyroEnabled = false;
+let gyroValue   = GH / 2; // current gyro-mapped Y
+let gyroBase    = null;    // calibration baseline
+const GYRO_RANGE = 40;    // degrees of tilt = full paddle travel
+
+function getCanvasY(clientY) {
+    const rect = canvas.getBoundingClientRect();
+    return (clientY - rect.top) * (GH / rect.height);
+}
+
+async function toggleGyro() {
+    if (gyroEnabled) {
+        gyroEnabled = false;
+        gyroBase = null;
+        updateGyroButtons();
+        return;
+    }
+    // iOS 13+ needs permission
+    if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+        try {
+            const perm = await DeviceOrientationEvent.requestPermission();
+            if (perm !== 'granted') { alert('Gyro permission denied.'); return; }
+        } catch(e) { alert('Could not request gyro permission.'); return; }
+    }
+    gyroEnabled = true;
+    gyroBase = null; // calibrate on first reading
+    updateGyroButtons();
+}
+
+function updateGyroButtons() {
+    ['btnGyro', 'btnGyro2'].forEach(id => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        if (gyroEnabled) {
+            el.classList.add('active');
+            el.textContent = '🌀 GYRO ON';
+        } else {
+            el.classList.remove('active');
+            el.textContent = '🌀 GYRO';
         }
-        resizeCanvas();
-        window.addEventListener('resize', resizeCanvas);
+    });
+}
 
-        const PADDLE_W = 12, PADDLE_H = 60, BALL_SIZE = 8;
-        const WINNING_SCORE = 7;
-        const POWER_DURATION = 800, CURVE_DURATION = 600;
+window.addEventListener('deviceorientation', (e) => {
+    if (!gyroEnabled) return;
+    const isLandscape = window.matchMedia('(orientation: landscape)').matches;
 
-        let playerY = GH / 2 - PADDLE_H / 2;
-        let aiY = GH / 2 - PADDLE_H / 2;
-        let ballX = GW / 2, ballY = GH / 2;
-        let ballVX = 4, ballVY = 2, ballCurve = 0;
-        let playerScore = 0, aiScore = 0;
-        let gameRunning = false, gameOver = false, paused = false;
-        let touchY = GH / 2;
+    // In landscape: tilt = beta (phone tilted fwd/back = paddle up/down)
+    // In portrait:  tilt = gamma (phone tilted left/right = paddle up/down)
+    const rawTilt = isLandscape ? (e.beta ?? 0) : (e.gamma ?? 0);
 
-        let powerUpActive = false, powerMultiplier = 1, powerEndTime = 0;
-        let curveActive = false, curveEndTime = 0, curveDirection = 0;
+    if (gyroBase === null) gyroBase = rawTilt; // calibrate to starting position
+    const delta = rawTilt - gyroBase;          // degrees from neutral
+    const norm  = Math.max(-1, Math.min(1, delta / GYRO_RANGE));
+    gyroValue   = GH / 2 + norm * (GH / 2 - PADDLE_H / 2);
+});
 
-        // ── Touch paddle control ──────────────────────────────────────
-        function getTouchCanvasY(touch) {
-            const rect = canvas.getBoundingClientRect();
-            const scaleY = GH / rect.height;
-            return (touch.clientY - rect.top) * scaleY;
+// ── Input (touch + mouse) ───────────────────────────────────────────────────
+canvas.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    if (!gyroEnabled) inputY = getCanvasY(e.touches[0].clientY);
+    if (!gameRunning && !gameOver) startGame();
+    else if (gameOver) resetGame();
+    else paused = false;
+}, { passive: false });
+
+canvas.addEventListener('touchmove', (e) => {
+    e.preventDefault();
+    if (!gyroEnabled) inputY = getCanvasY(e.touches[0].clientY);
+}, { passive: false });
+
+canvas.addEventListener('mousemove', (e) => {
+    if (!gyroEnabled) inputY = getCanvasY(e.clientY);
+});
+canvas.addEventListener('click', () => {
+    if (!gameRunning && !gameOver) startGame();
+    else if (gameOver) resetGame();
+});
+
+// ── Power buttons ───────────────────────────────────────────────────────────
+function activatePower(m) {
+    if (!gameRunning || gameOver) return;
+    powerUpActive = true; powerMultiplier = m;
+    powerEndTime = Date.now() + POWER_DURATION;
+}
+function activateCurve() {
+    if (!gameRunning || gameOver) return;
+    curveActive = true;
+    curveDirection = Math.random() > 0.5 ? 1 : -1;
+    curveEndTime = Date.now() + CURVE_DURATION;
+}
+
+function wireBtn(id, fn) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener('touchstart', (e) => { e.preventDefault(); fn(); }, { passive: false });
+    el.addEventListener('click', fn);
+}
+
+wireBtn('btnGyro',  () => toggleGyro());
+wireBtn('btnGyro2', () => toggleGyro());
+wireBtn('btn2x',    () => activatePower(2));
+wireBtn('btn2x2',   () => activatePower(2));
+wireBtn('btn3x',    () => activatePower(3));
+wireBtn('btn3x2',   () => activatePower(3));
+wireBtn('btn4x',    () => activatePower(4));
+wireBtn('btn4x2',   () => activatePower(4));
+wireBtn('btnCrv',   () => activateCurve());
+wireBtn('btnCrv2',  () => activateCurve());
+
+// ── Keyboard (desktop) ──────────────────────────────────────────────────────
+const keysDown = {};
+document.addEventListener('keydown', (e) => {
+    const k = e.key.toUpperCase();
+    if (!keysDown[k]) {
+        keysDown[k] = true;
+        if (k==='Z' && keysDown['X']) activatePower(2);
+        if (k==='A' && keysDown['S']) activatePower(3);
+        if (k==='Q' && keysDown['W']) activatePower(4);
+        if (k==='J' && keysDown['K']) activateCurve();
+    }
+    if (e.code==='Space')  { e.preventDefault(); if (gameOver) resetGame(); else paused = !paused; }
+    if (e.code==='Enter' && !gameRunning && !gameOver) startGame();
+});
+document.addEventListener('keyup', (e) => { keysDown[e.key.toUpperCase()] = false; });
+
+// ── Game functions ──────────────────────────────────────────────────────────
+function startGame()  { gameRunning = true; requestAnimationFrame(gameLoop); }
+
+function resetGame() {
+    playerScore = aiScore = 0;
+    setScore(0, 0);
+    resetBall();
+    gameOver = false; powerUpActive = false; curveActive = false;
+    powerMultiplier = 1; ballCurve = 0; setPowerText('', '#ff0');
+    gameRunning = true;
+    requestAnimationFrame(gameLoop);
+}
+
+function resetBall() {
+    ballX = GW / 2; ballY = GH / 2;
+    ballVX = (Math.random() > 0.5 ? 1 : -1) * 4;
+    ballVY = (Math.random() - 0.5) * 3;
+    ballCurve = 0;
+}
+
+function updatePowerDisplay() {
+    let text = '';
+    if (powerUpActive) {
+        if (Date.now() > powerEndTime) { powerUpActive = false; powerMultiplier = 1; }
+        else {
+            const r = ((powerEndTime - Date.now()) / 1000).toFixed(1);
+            text = `>>> ${powerMultiplier}X POWER! ${r}s <<<`;
         }
+    }
+    if (curveActive) {
+        if (Date.now() > curveEndTime) { curveActive = false; ballCurve = 0; }
+        else text += (text ? ' | ' : '') + '*** CURVE ***';
+    }
+    const col = powerUpActive ? '#ff0' : (curveActive ? '#0f0' : '#ff0');
+    setPowerText(text, col);
+}
 
-        canvas.addEventListener('touchstart', (e) => {
-            e.preventDefault();
-            touchY = getTouchCanvasY(e.touches[0]);
-            if (!gameRunning && !gameOver) startGame();
-            else if (gameOver) resetGame();
-        }, { passive: false });
+function update() {
+    if (paused || gameOver) return;
 
-        canvas.addEventListener('touchmove', (e) => {
-            e.preventDefault();
-            touchY = getTouchCanvasY(e.touches[0]);
-        }, { passive: false });
+    // Unified input: gyro overrides touch when enabled
+    const targetY = gyroEnabled ? gyroValue : inputY;
+    playerY = Math.max(0, Math.min(GH - PADDLE_H, targetY - PADDLE_H / 2));
 
-        // Mouse fallback (desktop)
-        canvas.addEventListener('mousemove', (e) => {
-            const rect = canvas.getBoundingClientRect();
-            touchY = (e.clientY - rect.top) * (GH / rect.height);
-        });
-        canvas.addEventListener('click', () => {
-            if (!gameRunning && !gameOver) startGame();
-            else if (gameOver) resetGame();
-        });
+    // AI
+    const aiCenter = aiY + PADDLE_H / 2;
+    const spd = 3.5;
+    if (aiCenter < ballY - 20) aiY += spd;
+    else if (aiCenter > ballY + 20) aiY -= spd;
+    aiY = Math.max(0, Math.min(GH - PADDLE_H, aiY));
 
-        // ── On-screen power buttons ───────────────────────────────────
-        function activatePower(multiplier) {
-            if (!gameRunning || gameOver) return;
-            powerUpActive = true;
-            powerMultiplier = multiplier;
-            powerEndTime = Date.now() + POWER_DURATION;
+    // Curve
+    if (curveActive && ballVX > 0) {
+        ballCurve = curveDirection * (curveEndTime - Date.now()) / CURVE_DURATION * 0.3;
+    } else { ballCurve *= 0.9; }
+
+    ballX += ballVX; ballY += ballVY + ballCurve;
+
+    // Wall bounce
+    if (ballY - BALL_SIZE <= 0 || ballY + BALL_SIZE >= GH) {
+        ballVY *= -1;
+        ballY = ballY < GH / 2 ? BALL_SIZE : GH - BALL_SIZE;
+    }
+
+    // Player hit
+    if (ballX - BALL_SIZE <= 40 && ballY > playerY && ballY < playerY + PADDLE_H) {
+        const angle = ((ballY - playerY) / PADDLE_H - 0.5) * Math.PI / 2.5;
+        let speed = Math.hypot(ballVX, ballVY);
+        if (powerUpActive) { speed *= powerMultiplier; powerUpActive = false; powerMultiplier = 1; setPowerText('', '#ff0'); }
+        else speed = Math.min(speed * 1.05, 12);
+        ballVX = Math.abs(Math.cos(angle) * speed);
+        ballVY = Math.sin(angle) * speed;
+        ballX = 40 + BALL_SIZE;
+    }
+
+    // AI hit
+    if (ballX + BALL_SIZE >= GW - 40 && ballY > aiY && ballY < aiY + PADDLE_H) {
+        const angle = ((ballY - aiY) / PADDLE_H - 0.5) * Math.PI / 2.5;
+        let speed = Math.min(Math.hypot(ballVX, ballVY) * 1.05, 12);
+        ballVX = -Math.abs(Math.cos(angle) * speed);
+        ballVY = Math.sin(angle) * speed;
+        ballX = GW - 40 - BALL_SIZE;
+    }
+
+    // Scoring
+    if (ballX < 0)  { aiScore++;     setScore(playerScore, aiScore);     checkWin(); if (!gameOver) resetBall(); }
+    if (ballX > GW) { playerScore++; setScore(playerScore, aiScore); checkWin(); if (!gameOver) resetBall(); }
+
+    updatePowerDisplay();
+}
+
+function checkWin() {
+    if (playerScore >= WINNING_SCORE || aiScore >= WINNING_SCORE) {
+        gameOver = true; gameRunning = false;
+    }
+}
+
+// ── Drawing ─────────────────────────────────────────────────────────────────
+function draw() {
+    ctx.fillStyle = '#000'; ctx.fillRect(0, 0, GW, GH);
+
+    // Center dashes
+    ctx.strokeStyle = '#333'; ctx.lineWidth = 2;
+    ctx.setLineDash([20, 10]);
+    ctx.beginPath(); ctx.moveTo(GW/2, 0); ctx.lineTo(GW/2, GH); ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Border
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(0,0,GW,4); ctx.fillRect(0,GH-4,GW,4);
+    ctx.fillRect(0,0,4,GH); ctx.fillRect(GW-4,0,4,GH);
+
+    // Paddles
+    ctx.fillStyle = '#fff'; ctx.fillRect(20, playerY, PADDLE_W, PADDLE_H);
+    ctx.fillStyle = '#0f0'; ctx.fillRect(24, playerY+5, 4, PADDLE_H-10);
+
+    ctx.fillStyle = '#fff'; ctx.fillRect(GW-32, aiY, PADDLE_W, PADDLE_H);
+    ctx.fillStyle = '#f00'; ctx.fillRect(GW-28, aiY+5, 4, PADDLE_H-10);
+
+    // Ball
+    const bc = powerUpActive ? '#ff0' : (curveActive ? '#0f0' : '#fff');
+    if (powerUpActive || curveActive) {
+        const tc = powerUpActive ? 3 : 2;
+        for (let i = tc; i > 0; i--) {
+            ctx.globalAlpha = (1 - i/(tc+1)) * 0.45;
+            ctx.fillStyle = bc;
+            ctx.fillRect(ballX-BALL_SIZE/2 - ballVX*i*0.5, ballY-BALL_SIZE/2 - ballVY*i*0.5, BALL_SIZE-i, BALL_SIZE-i);
         }
-        function activateCurve() {
-            if (!gameRunning || gameOver) return;
-            curveActive = true;
-            curveDirection = Math.random() > 0.5 ? 1 : -1;
-            curveEndTime = Date.now() + CURVE_DURATION;
-        }
+        ctx.globalAlpha = 1;
+    }
+    ctx.fillStyle = bc;
+    ctx.fillRect(ballX-BALL_SIZE/2, ballY-BALL_SIZE/2, BALL_SIZE, BALL_SIZE);
 
-        document.getElementById('btn2x') .addEventListener('touchstart', (e) => { e.preventDefault(); activatePower(2); }, { passive: false });
-        document.getElementById('btn3x') .addEventListener('touchstart', (e) => { e.preventDefault(); activatePower(3); }, { passive: false });
-        document.getElementById('btn4x') .addEventListener('touchstart', (e) => { e.preventDefault(); activatePower(4); }, { passive: false });
-        document.getElementById('btnCrv').addEventListener('touchstart', (e) => { e.preventDefault(); activateCurve();   }, { passive: false });
-        document.getElementById('btn2x') .addEventListener('click', () => activatePower(2));
-        document.getElementById('btn3x') .addEventListener('click', () => activatePower(3));
-        document.getElementById('btn4x') .addEventListener('click', () => activatePower(4));
-        document.getElementById('btnCrv').addEventListener('click', () => activateCurve());
+    // Gyro indicator
+    if (gyroEnabled) {
+        ctx.fillStyle = '#0ff';
+        ctx.font = 'bold 11px Courier New';
+        ctx.textAlign = 'left';
+        ctx.fillText('GYRO', 8, 16);
+    }
 
-        // ── Keyboard support (desktop) ────────────────────────────────
-        const keysDown = {};
-        document.addEventListener('keydown', (e) => {
-            const k = e.key.toUpperCase();
-            if (!keysDown[k]) {
-                keysDown[k] = true;
-                if (k === 'Z' && keysDown['X']) activatePower(2);
-                if (k === 'A' && keysDown['S']) activatePower(3);
-                if (k === 'Q' && keysDown['W']) activatePower(4);
-                if (k === 'J' && keysDown['K']) activateCurve();
-            }
-            if (e.code === 'Space') { e.preventDefault(); if (gameOver) resetGame(); else paused = !paused; }
-            if (e.code === 'Enter' && !gameRunning && !gameOver) startGame();
-        });
-        document.addEventListener('keyup', (e) => { keysDown[e.key.toUpperCase()] = false; });
+    // Paused
+    if (paused) {
+        ctx.fillStyle = 'rgba(0,0,0,0.8)'; ctx.fillRect(0,0,GW,GH);
+        drawText('PAUSED', GW/2, GH/2, 32, '#0f0');
+        drawText('TAP TO RESUME', GW/2, GH/2+40, 16, '#0f0');
+    }
 
-        // ── Game logic ────────────────────────────────────────────────
-        function startGame()  { gameRunning = true; gameLoop(); }
+    // Game over
+    if (gameOver) {
+        ctx.fillStyle = 'rgba(0,0,0,0.85)'; ctx.fillRect(0,0,GW,GH);
+        const win = playerScore >= WINNING_SCORE;
+        drawText(win ? 'YOU WIN! 🎉' : 'AI WINS!', GW/2, GH/2-30, 36, win ? '#0f0' : '#f00');
+        drawText(`${playerScore} — ${aiScore}`, GW/2, GH/2+15, 28, '#fff');
+        drawText('TAP TO PLAY AGAIN', GW/2, GH/2+60, 14, '#aaa');
+    }
 
-        function resetGame() {
-            playerScore = aiScore = 0;
-            playerScoreEl.textContent = aiScoreEl.textContent = '0';
-            resetBall();
-            gameOver = false; powerUpActive = false; curveActive = false;
-            powerMultiplier = 1; ballCurve = 0; powerDisplay.textContent = '';
-            gameRunning = true;
-            gameLoop();
-        }
+    // Start screen
+    if (!gameRunning && !gameOver) {
+        ctx.fillStyle = 'rgba(0,0,0,0.75)'; ctx.fillRect(0,0,GW,GH);
+        drawText('PINGY DINGY DONG PONG', GW/2, GH/2-90, 28, '#fff');
+        drawText('DRAG or TILT to move your paddle', GW/2, GH/2-40, 13, '#0f0');
+        drawText('Tap GYRO button to use phone tilt', GW/2, GH/2-18, 12, '#0ff');
+        drawText('Tap power buttons for special shots', GW/2, GH/2+8, 12, '#ff0');
+        drawText('FIRST TO 7 WINS', GW/2, GH/2+34, 12, '#888');
+        drawText('▶  TAP TO START  ◀', GW/2, GH/2+78, 18, '#fff');
+    }
+}
 
-        function resetBall() {
-            ballX = GW / 2; ballY = GH / 2;
-            ballVX = (Math.random() > 0.5 ? 1 : -1) * 4;
-            ballVY = (Math.random() - 0.5) * 3;
-            ballCurve = 0;
-        }
+function drawText(text, x, y, size, color) {
+    ctx.fillStyle = color;
+    ctx.font = `bold ${size}px "Courier New", monospace`;
+    ctx.textAlign = 'center';
+    ctx.fillText(text, x, y);
+}
 
-        function updatePowerDisplay() {
-            let text = '';
-            if (powerUpActive) {
-                if (Date.now() > powerEndTime) { powerUpActive = false; powerMultiplier = 1; }
-                else {
-                    const r = Math.ceil((powerEndTime - Date.now()) / 100) / 10;
-                    text = `>>> ${powerMultiplier}X POWER SHOT! ${r.toFixed(1)}s <<<`;
-                }
-            }
-            if (curveActive) {
-                if (Date.now() > curveEndTime) { curveActive = false; ballCurve = 0; }
-                else text += (text ? ' | ' : '') + '*** CURVE BALL ACTIVE ***';
-            }
-            powerDisplay.textContent = text;
-            powerDisplay.style.color = powerUpActive ? '#ff0' : (curveActive ? '#0f0' : '#ff0');
-        }
+let loopRunning = false;
+function gameLoop() {
+    if (!gameRunning) { loopRunning = false; draw(); return; }
+    loopRunning = true;
+    update(); draw();
+    requestAnimationFrame(gameLoop);
+}
 
-        function update() {
-            if (paused || gameOver) return;
-
-            // Player paddle follows touch/mouse
-            playerY = touchY - PADDLE_H / 2;
-            playerY = Math.max(0, Math.min(GH - PADDLE_H, playerY));
-
-            // AI paddle
-            const aiCenter = aiY + PADDLE_H / 2;
-            const aiSpeed = 3.5;
-            if (aiCenter < ballY - 20) aiY += aiSpeed;
-            else if (aiCenter > ballY + 20) aiY -= aiSpeed;
-            aiY = Math.max(0, Math.min(GH - PADDLE_H, aiY));
-
-            // Curve physics
-            if (curveActive && ballVX > 0) {
-                const s = (curveEndTime - Date.now()) / CURVE_DURATION * 0.3;
-                ballCurve = curveDirection * s;
-            } else { ballCurve *= 0.9; }
-
-            ballX += ballVX;
-            ballY += ballVY + ballCurve;
-
-            // Wall bounce
-            if (ballY - BALL_SIZE <= 0 || ballY + BALL_SIZE >= GH) {
-                ballVY *= -1;
-                ballY = ballY < GH / 2 ? BALL_SIZE : GH - BALL_SIZE;
-            }
-
-            // Player paddle hit
-            if (ballX - BALL_SIZE <= 40) {
-                if (ballY > playerY && ballY < playerY + PADDLE_H) {
-                    const hitPos = (ballY - playerY) / PADDLE_H;
-                    const angle = (hitPos - 0.5) * Math.PI / 2.5;
-                    let speed = Math.sqrt(ballVX * ballVX + ballVY * ballVY);
-                    if (powerUpActive) {
-                        speed *= powerMultiplier;
-                        powerUpActive = false; powerMultiplier = 1;
-                        powerDisplay.textContent = '';
-                    } else { speed = Math.min(speed * 1.05, 10); }
-                    ballVX = Math.abs(Math.cos(angle) * speed);
-                    ballVY = Math.sin(angle) * speed;
-                    ballX = 40 + BALL_SIZE;
-                }
-            }
-
-            // AI paddle hit
-            if (ballX + BALL_SIZE >= GW - 40) {
-                if (ballY > aiY && ballY < aiY + PADDLE_H) {
-                    const hitPos = (ballY - aiY) / PADDLE_H;
-                    const angle = (hitPos - 0.5) * Math.PI / 2.5;
-                    let speed = Math.sqrt(ballVX * ballVX + ballVY * ballVY);
-                    speed = Math.min(speed * 1.05, 10);
-                    ballVX = -Math.abs(Math.cos(angle) * speed);
-                    ballVY = Math.sin(angle) * speed;
-                    ballX = GW - 40 - BALL_SIZE;
-                }
-            }
-
-            // Scoring
-            if (ballX < 0)  { aiScore++;     aiScoreEl.textContent = aiScore;     checkWin(); if (!gameOver) resetBall(); }
-            if (ballX > GW) { playerScore++; playerScoreEl.textContent = playerScore; checkWin(); if (!gameOver) resetBall(); }
-
-            updatePowerDisplay();
-        }
-
-        function checkWin() {
-            if (playerScore >= WINNING_SCORE || aiScore >= WINNING_SCORE) {
-                gameOver = true; gameRunning = false;
-            }
-        }
-
-        // ── Drawing ───────────────────────────────────────────────────
-        function draw() {
-            ctx.fillStyle = '#000';
-            ctx.fillRect(0, 0, GW, GH);
-
-            // Center line
-            ctx.strokeStyle = '#fff'; ctx.lineWidth = 2;
-            ctx.setLineDash([20, 10]);
-            ctx.beginPath(); ctx.moveTo(GW / 2, 0); ctx.lineTo(GW / 2, GH); ctx.stroke();
-            ctx.setLineDash([]);
-
-            // Border
-            ctx.fillStyle = '#fff';
-            ctx.fillRect(0, 0, GW, 4); ctx.fillRect(0, GH - 4, GW, 4);
-            ctx.fillRect(0, 0, 4, GH); ctx.fillRect(GW - 4, 0, 4, GH);
-
-            // Player paddle
-            ctx.fillStyle = '#fff'; ctx.fillRect(20, playerY, PADDLE_W, PADDLE_H);
-            ctx.fillStyle = '#0f0'; ctx.fillRect(24, playerY + 5, 4, PADDLE_H - 10);
-
-            // AI paddle
-            ctx.fillStyle = '#fff'; ctx.fillRect(GW - 32, aiY, PADDLE_W, PADDLE_H);
-            ctx.fillStyle = '#f00'; ctx.fillRect(GW - 28, aiY + 5, 4, PADDLE_H - 10);
-
-            // Ball
-            let ballColor = '#fff';
-            if (powerUpActive) ballColor = '#ff0';
-            else if (curveActive) ballColor = '#0f0';
-
-            if (powerUpActive || curveActive) {
-                const tc = powerUpActive ? 3 : 2;
-                for (let i = tc; i > 0; i--) {
-                    ctx.globalAlpha = (1 - i / (tc + 1)) * 0.5;
-                    ctx.fillStyle = ballColor;
-                    ctx.fillRect(
-                        ballX - BALL_SIZE / 2 - ballVX * i * 0.5,
-                        ballY - BALL_SIZE / 2 - ballVY * i * 0.5,
-                        BALL_SIZE - i, BALL_SIZE - i
-                    );
-                }
-                ctx.globalAlpha = 1;
-            }
-            ctx.fillStyle = ballColor;
-            ctx.fillRect(ballX - BALL_SIZE / 2, ballY - BALL_SIZE / 2, BALL_SIZE, BALL_SIZE);
-
-            // Overlays
-            if (paused) {
-                ctx.fillStyle = 'rgba(0,0,0,0.8)'; ctx.fillRect(0, 0, GW, GH);
-                drawText('PAUSED', GW / 2, GH / 2, 32, '#0f0');
-                drawText('TAP TO RESUME', GW / 2, GH / 2 + 40, 16, '#0f0');
-            }
-
-            if (gameOver) {
-                ctx.fillStyle = 'rgba(0,0,0,0.85)'; ctx.fillRect(0, 0, GW, GH);
-                const win = playerScore >= WINNING_SCORE;
-                drawText(win ? 'YOU WIN! 🎉' : 'AI WINS!', GW / 2, GH / 2 - 20, 32, win ? '#0f0' : '#f00');
-                drawText(`${playerScore} — ${aiScore}`, GW / 2, GH / 2 + 20, 24, '#fff');
-                drawText('TAP TO PLAY AGAIN', GW / 2, GH / 2 + 60, 14, '#fff');
-            }
-
-            if (!gameRunning && !gameOver) {
-                ctx.fillStyle = 'rgba(0,0,0,0.7)'; ctx.fillRect(0, 0, GW, GH);
-                drawText('PING PONG', GW / 2, GH / 2 - 80, 40, '#fff');
-                drawText('DRAG TO CONTROL YOUR PADDLE', GW / 2, GH / 2 - 20, 13, '#0f0');
-                drawText('TAP POWER BUTTONS FOR SPECIAL SHOTS', GW / 2, GH / 2 + 10, 11, '#ff0');
-                drawText('FIRST TO 7 WINS', GW / 2, GH / 2 + 36, 12, '#888');
-                drawText('TAP TO START', GW / 2, GH / 2 + 80, 18, '#fff');
-            }
-        }
-
-        function drawText(text, x, y, size, color) {
-            ctx.fillStyle = color;
-            ctx.font = `bold ${size}px "Courier New", monospace`;
-            ctx.textAlign = 'center';
-            ctx.fillText(text, x, y);
-        }
-
-        function gameLoop() {
-            if (!gameRunning) return;
-            update(); draw();
-            requestAnimationFrame(gameLoop);
-        }
-
-        draw();
-    </script>
+draw(); // initial screen
+</script>
 </body>
 </html>

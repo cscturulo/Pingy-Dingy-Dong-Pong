@@ -2,64 +2,102 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>PING PONG</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
 
         body {
             display: flex;
+            flex-direction: column;
             justify-content: center;
             align-items: center;
-            min-height: 100vh;
+            min-height: 100dvh;
             background: #000;
             font-family: 'Courier New', monospace;
+            overflow: hidden;
+            touch-action: none;
         }
 
         .game-container {
             display: flex;
             flex-direction: column;
             align-items: center;
-            gap: 10px;
+            gap: 6px;
+            width: 100%;
+            padding: 4px;
         }
 
         .scoreboard {
             display: flex;
-            gap: 120px;
+            gap: 80px;
             color: #fff;
-            font-size: 48px;
+            font-size: clamp(28px, 8vw, 48px);
             font-weight: bold;
             text-shadow: 0 0 10px #fff;
             letter-spacing: 8px;
         }
 
-        .score {
-            min-width: 60px;
-            text-align: center;
-        }
+        .score { min-width: 50px; text-align: center; }
 
         #gameCanvas {
-            border: 4px solid #fff;
+            border: 3px solid #fff;
             image-rendering: pixelated;
+            max-width: 100%;
+            touch-action: none;
+            cursor: none;
         }
 
         .power-display {
             color: #ff0;
-            font-size: 14px;
+            font-size: clamp(10px, 3vw, 13px);
             text-shadow: 0 0 8px #ff0;
-            height: 20px;
+            height: 18px;
+            text-align: center;
         }
 
         .instructions {
             color: #888;
-            font-size: 11px;
+            font-size: clamp(9px, 2.5vw, 11px);
             text-align: center;
-            margin-top: 5px;
         }
+
+        /* On-screen power buttons */
+        .power-buttons {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            justify-content: center;
+            margin-top: 4px;
+        }
+
+        .power-btn {
+            padding: 10px 14px;
+            border: 2px solid;
+            background: rgba(0,0,0,0.7);
+            color: inherit;
+            font-family: 'Courier New', monospace;
+            font-size: clamp(10px, 2.8vw, 12px);
+            font-weight: bold;
+            border-radius: 6px;
+            cursor: pointer;
+            user-select: none;
+            -webkit-user-select: none;
+            text-shadow: 0 0 6px currentColor;
+            box-shadow: 0 0 6px currentColor;
+            min-width: 80px;
+            text-align: center;
+            transition: opacity 0.1s;
+            letter-spacing: 1px;
+        }
+
+        .power-btn:active { opacity: 0.6; transform: scale(0.95); }
+        .power-btn.disabled { opacity: 0.3; pointer-events: none; }
+
+        .btn-2x  { color: #0ff; border-color: #0ff; }
+        .btn-3x  { color: #f0f; border-color: #f0f; }
+        .btn-4x  { color: #ff0; border-color: #ff0; }
+        .btn-crv { color: #0f0; border-color: #0f0; }
     </style>
 </head>
 <body>
@@ -68,9 +106,15 @@
             <span id="playerScore" class="score">0</span>
             <span id="aiScore" class="score">0</span>
         </div>
-        <canvas id="gameCanvas" width="640" height="400"></canvas>
+        <canvas id="gameCanvas"></canvas>
         <div class="power-display" id="powerDisplay"></div>
-        <div class="instructions">FIRST TO 7 WINS</div>
+        <div class="instructions">FIRST TO 7 WINS &nbsp;|&nbsp; DRAG TO MOVE PADDLE</div>
+        <div class="power-buttons">
+            <button class="power-btn btn-2x"  id="btn2x">⚡ 2X SPEED</button>
+            <button class="power-btn btn-3x"  id="btn3x">⚡ 3X SPEED</button>
+            <button class="power-btn btn-4x"  id="btn4x">⚡ 4X SPEED</button>
+            <button class="power-btn btn-crv" id="btnCrv">🌀 CURVE</button>
+        </div>
     </div>
 
     <script>
@@ -80,217 +124,190 @@
         const aiScoreEl = document.getElementById('aiScore');
         const powerDisplay = document.getElementById('powerDisplay');
 
-        const W = canvas.width;
-        const H = canvas.height;
+        // Internal game resolution
+        const GW = 640, GH = 400;
+        canvas.width = GW;
+        canvas.height = GH;
 
-        const PADDLE_W = 12;
-        const PADDLE_H = 60;
-        const BALL_SIZE = 8;
+        // Scale canvas to fit screen
+        function resizeCanvas() {
+            const maxW = window.innerWidth - 8;
+            const maxH = window.innerHeight - 220; // room for buttons
+            const scale = Math.min(maxW / GW, maxH / GH, 1);
+            canvas.style.width  = Math.floor(GW * scale) + 'px';
+            canvas.style.height = Math.floor(GH * scale) + 'px';
+        }
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+
+        const PADDLE_W = 12, PADDLE_H = 60, BALL_SIZE = 8;
         const WINNING_SCORE = 7;
+        const POWER_DURATION = 800, CURVE_DURATION = 600;
 
-        const POWER_COMBOS = [
-            { keys: ['Z', 'X'], label: 'Z+X = 2X SPEED', color: '#0ff', multiplier: 2 },
-            { keys: ['A', 'S'], label: 'A+S = 3X SPEED', color: '#f0f', multiplier: 3 },
-            { keys: ['Q', 'W'], label: 'Q+W = 4X SPEED', color: '#ff0', multiplier: 4 }
-        ];
+        let playerY = GH / 2 - PADDLE_H / 2;
+        let aiY = GH / 2 - PADDLE_H / 2;
+        let ballX = GW / 2, ballY = GH / 2;
+        let ballVX = 4, ballVY = 2, ballCurve = 0;
+        let playerScore = 0, aiScore = 0;
+        let gameRunning = false, gameOver = false, paused = false;
+        let touchY = GH / 2;
 
-        const CURVE_COMBO = { keys: ['J', 'K'], label: 'J+K = CURVE BALL', color: '#0f0' };
+        let powerUpActive = false, powerMultiplier = 1, powerEndTime = 0;
+        let curveActive = false, curveEndTime = 0, curveDirection = 0;
 
-        const COMBO_WINDOW = 400;
-        const POWER_DURATION = 800;
-        const CURVE_DURATION = 600;
+        // ── Touch paddle control ──────────────────────────────────────
+        function getTouchCanvasY(touch) {
+            const rect = canvas.getBoundingClientRect();
+            const scaleY = GH / rect.height;
+            return (touch.clientY - rect.top) * scaleY;
+        }
 
-        let playerY = H / 2 - PADDLE_H / 2;
-        let aiY = H / 2 - PADDLE_H / 2;
-        let ballX = W / 2;
-        let ballY = H / 2;
-        let ballVX = 4;
-        let ballVY = 2;
-        let ballCurve = 0;
-        let playerScore = 0;
-        let aiScore = 0;
-        let gameRunning = false;
-        let gameOver = false;
-        let paused = false;
-        let mouseY = H / 2;
+        canvas.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            touchY = getTouchCanvasY(e.touches[0]);
+            if (!gameRunning && !gameOver) startGame();
+            else if (gameOver) resetGame();
+        }, { passive: false });
 
-        let keyPresses = [];
-        let powerUpActive = false;
-        let powerMultiplier = 1;
-        let powerEndTime = 0;
-        let curveActive = false;
-        let curveEndTime = 0;
-        let curveDirection = 0;
+        canvas.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+            touchY = getTouchCanvasY(e.touches[0]);
+        }, { passive: false });
 
-        document.addEventListener('keydown', (e) => {
-            const key = e.key.toUpperCase();
-            if (!keysDown[key]) {
-                keysDown[key] = true;
-                keyPresses.push({ key, time: Date.now() });
-            }
-            if (e.code === 'Space') {
-                e.preventDefault();
-                if (gameOver) {
-                    resetGame();
-                } else {
-                    paused = !paused;
-                }
-            }
-            if (e.code === 'Enter' && !gameRunning && !gameOver) {
-                startGame();
-            }
-        });
-
-        document.addEventListener('keyup', (e) => {
-            const key = e.key.toUpperCase();
-            keysDown[key] = false;
-        });
-
-        const keysDown = {};
-
+        // Mouse fallback (desktop)
         canvas.addEventListener('mousemove', (e) => {
             const rect = canvas.getBoundingClientRect();
-            mouseY = e.clientY - rect.top;
+            touchY = (e.clientY - rect.top) * (GH / rect.height);
         });
-
         canvas.addEventListener('click', () => {
-            if (!gameRunning && !gameOver) {
-                startGame();
-            } else if (gameOver) {
-                resetGame();
-            }
+            if (!gameRunning && !gameOver) startGame();
+            else if (gameOver) resetGame();
         });
 
-        function checkCombos() {
-            const now = Date.now();
-            keyPresses = keyPresses.filter(k => now - k.time < COMBO_WINDOW);
-
-            for (const combo of POWER_COMBOS) {
-                const hasKeys = combo.keys.every(k => keyPresses.some(p => p.key === k && now - p.time < COMBO_WINDOW));
-                if (hasKeys) {
-                    powerUpActive = true;
-                    powerMultiplier = combo.multiplier;
-                    powerEndTime = now + POWER_DURATION;
-                    keyPresses = keyPresses.filter(p => !combo.keys.includes(p.key));
-                    return;
-                }
-            }
-
-            const curveKeys = CURVE_COMBO.keys.every(k => 
-                keyPresses.some(p => p.key === k && now - p.time < COMBO_WINDOW)
-            );
-            if (curveKeys) {
-                curveActive = true;
-                curveDirection = keysDown['J'] ? 1 : (keysDown['K'] ? -1 : (Math.random() > 0.5 ? 1 : -1));
-                curveEndTime = now + CURVE_DURATION;
-                keyPresses = keyPresses.filter(p => !CURVE_COMBO.keys.includes(p.key));
-            }
+        // ── On-screen power buttons ───────────────────────────────────
+        function activatePower(multiplier) {
+            if (!gameRunning || gameOver) return;
+            powerUpActive = true;
+            powerMultiplier = multiplier;
+            powerEndTime = Date.now() + POWER_DURATION;
+        }
+        function activateCurve() {
+            if (!gameRunning || gameOver) return;
+            curveActive = true;
+            curveDirection = Math.random() > 0.5 ? 1 : -1;
+            curveEndTime = Date.now() + CURVE_DURATION;
         }
 
-        function updatePowerDisplay() {
-            let text = '';
-            if (powerUpActive) {
-                if (Date.now() > powerEndTime) {
-                    powerUpActive = false;
-                    powerMultiplier = 1;
-                } else {
-                    const remaining = Math.ceil((powerEndTime - Date.now()) / 1000 * 10) / 10;
-                    text = `>>> ${powerMultiplier}X POWER SHOT! ${remaining.toFixed(1)}s <<<`;
-                }
-            }
-            if (curveActive) {
-                if (Date.now() > curveEndTime) {
-                    curveActive = false;
-                    ballCurve = 0;
-                } else {
-                    text += (text ? ' | ' : '') + '*** CURVE BALL ACTIVE ***';
-                }
-            }
-            powerDisplay.textContent = text;
-            powerDisplay.style.color = powerUpActive ? '#ff0' : (curveActive ? '#0f0' : '#ff0');
-        }
+        document.getElementById('btn2x') .addEventListener('touchstart', (e) => { e.preventDefault(); activatePower(2); }, { passive: false });
+        document.getElementById('btn3x') .addEventListener('touchstart', (e) => { e.preventDefault(); activatePower(3); }, { passive: false });
+        document.getElementById('btn4x') .addEventListener('touchstart', (e) => { e.preventDefault(); activatePower(4); }, { passive: false });
+        document.getElementById('btnCrv').addEventListener('touchstart', (e) => { e.preventDefault(); activateCurve();   }, { passive: false });
+        document.getElementById('btn2x') .addEventListener('click', () => activatePower(2));
+        document.getElementById('btn3x') .addEventListener('click', () => activatePower(3));
+        document.getElementById('btn4x') .addEventListener('click', () => activatePower(4));
+        document.getElementById('btnCrv').addEventListener('click', () => activateCurve());
 
-        function startGame() {
-            gameRunning = true;
-            gameLoop();
-        }
+        // ── Keyboard support (desktop) ────────────────────────────────
+        const keysDown = {};
+        document.addEventListener('keydown', (e) => {
+            const k = e.key.toUpperCase();
+            if (!keysDown[k]) {
+                keysDown[k] = true;
+                if (k === 'Z' && keysDown['X']) activatePower(2);
+                if (k === 'A' && keysDown['S']) activatePower(3);
+                if (k === 'Q' && keysDown['W']) activatePower(4);
+                if (k === 'J' && keysDown['K']) activateCurve();
+            }
+            if (e.code === 'Space') { e.preventDefault(); if (gameOver) resetGame(); else paused = !paused; }
+            if (e.code === 'Enter' && !gameRunning && !gameOver) startGame();
+        });
+        document.addEventListener('keyup', (e) => { keysDown[e.key.toUpperCase()] = false; });
+
+        // ── Game logic ────────────────────────────────────────────────
+        function startGame()  { gameRunning = true; gameLoop(); }
 
         function resetGame() {
-            playerScore = 0;
-            aiScore = 0;
-            playerScoreEl.textContent = '0';
-            aiScoreEl.textContent = '0';
+            playerScore = aiScore = 0;
+            playerScoreEl.textContent = aiScoreEl.textContent = '0';
             resetBall();
-            gameOver = false;
-            powerUpActive = false;
-            curveActive = false;
-            powerMultiplier = 1;
-            ballCurve = 0;
-            powerDisplay.textContent = '';
+            gameOver = false; powerUpActive = false; curveActive = false;
+            powerMultiplier = 1; ballCurve = 0; powerDisplay.textContent = '';
             gameRunning = true;
             gameLoop();
         }
 
         function resetBall() {
-            ballX = W / 2;
-            ballY = H / 2;
+            ballX = GW / 2; ballY = GH / 2;
             ballVX = (Math.random() > 0.5 ? 1 : -1) * 4;
             ballVY = (Math.random() - 0.5) * 3;
             ballCurve = 0;
         }
 
+        function updatePowerDisplay() {
+            let text = '';
+            if (powerUpActive) {
+                if (Date.now() > powerEndTime) { powerUpActive = false; powerMultiplier = 1; }
+                else {
+                    const r = Math.ceil((powerEndTime - Date.now()) / 100) / 10;
+                    text = `>>> ${powerMultiplier}X POWER SHOT! ${r.toFixed(1)}s <<<`;
+                }
+            }
+            if (curveActive) {
+                if (Date.now() > curveEndTime) { curveActive = false; ballCurve = 0; }
+                else text += (text ? ' | ' : '') + '*** CURVE BALL ACTIVE ***';
+            }
+            powerDisplay.textContent = text;
+            powerDisplay.style.color = powerUpActive ? '#ff0' : (curveActive ? '#0f0' : '#ff0');
+        }
+
         function update() {
             if (paused || gameOver) return;
 
-            playerY = mouseY - PADDLE_H / 2;
-            playerY = Math.max(0, Math.min(H - PADDLE_H, playerY));
+            // Player paddle follows touch/mouse
+            playerY = touchY - PADDLE_H / 2;
+            playerY = Math.max(0, Math.min(GH - PADDLE_H, playerY));
 
+            // AI paddle
             const aiCenter = aiY + PADDLE_H / 2;
             const aiSpeed = 3.5;
-            if (aiCenter < ballY - 20) {
-                aiY += aiSpeed;
-            } else if (aiCenter > ballY + 20) {
-                aiY -= aiSpeed;
-            }
-            aiY = Math.max(0, Math.min(H - PADDLE_H, aiY));
+            if (aiCenter < ballY - 20) aiY += aiSpeed;
+            else if (aiCenter > ballY + 20) aiY -= aiSpeed;
+            aiY = Math.max(0, Math.min(GH - PADDLE_H, aiY));
 
+            // Curve physics
             if (curveActive && ballVX > 0) {
-                const curveStrength = (curveEndTime - Date.now()) / CURVE_DURATION * 0.3;
-                ballCurve = curveDirection * curveStrength;
-            } else {
-                ballCurve *= 0.9;
-            }
+                const s = (curveEndTime - Date.now()) / CURVE_DURATION * 0.3;
+                ballCurve = curveDirection * s;
+            } else { ballCurve *= 0.9; }
 
             ballX += ballVX;
             ballY += ballVY + ballCurve;
 
-            if (ballY - BALL_SIZE <= 0 || ballY + BALL_SIZE >= H) {
+            // Wall bounce
+            if (ballY - BALL_SIZE <= 0 || ballY + BALL_SIZE >= GH) {
                 ballVY *= -1;
-                ballY = ballY < H / 2 ? BALL_SIZE : H - BALL_SIZE;
+                ballY = ballY < GH / 2 ? BALL_SIZE : GH - BALL_SIZE;
             }
 
+            // Player paddle hit
             if (ballX - BALL_SIZE <= 40) {
                 if (ballY > playerY && ballY < playerY + PADDLE_H) {
                     const hitPos = (ballY - playerY) / PADDLE_H;
                     const angle = (hitPos - 0.5) * Math.PI / 2.5;
                     let speed = Math.sqrt(ballVX * ballVX + ballVY * ballVY);
-                    
                     if (powerUpActive) {
                         speed *= powerMultiplier;
-                        powerUpActive = false;
-                        powerMultiplier = 1;
+                        powerUpActive = false; powerMultiplier = 1;
                         powerDisplay.textContent = '';
-                    } else {
-                        speed = Math.min(speed * 1.05, 10);
-                    }
-                    
+                    } else { speed = Math.min(speed * 1.05, 10); }
                     ballVX = Math.abs(Math.cos(angle) * speed);
                     ballVY = Math.sin(angle) * speed;
                     ballX = 40 + BALL_SIZE;
                 }
             }
 
-            if (ballX + BALL_SIZE >= W - 40) {
+            // AI paddle hit
+            if (ballX + BALL_SIZE >= GW - 40) {
                 if (ballY > aiY && ballY < aiY + PADDLE_H) {
                     const hitPos = (ballY - aiY) / PADDLE_H;
                     const angle = (hitPos - 0.5) * Math.PI / 2.5;
@@ -298,133 +315,103 @@
                     speed = Math.min(speed * 1.05, 10);
                     ballVX = -Math.abs(Math.cos(angle) * speed);
                     ballVY = Math.sin(angle) * speed;
-                    ballX = W - 40 - BALL_SIZE;
+                    ballX = GW - 40 - BALL_SIZE;
                 }
             }
 
-            if (ballX < 0) {
-                aiScore++;
-                aiScoreEl.textContent = aiScore;
-                checkWin();
-                if (!gameOver) resetBall();
-            }
-            if (ballX > W) {
-                playerScore++;
-                playerScoreEl.textContent = playerScore;
-                checkWin();
-                if (!gameOver) resetBall();
-            }
+            // Scoring
+            if (ballX < 0)  { aiScore++;     aiScoreEl.textContent = aiScore;     checkWin(); if (!gameOver) resetBall(); }
+            if (ballX > GW) { playerScore++; playerScoreEl.textContent = playerScore; checkWin(); if (!gameOver) resetBall(); }
 
-            checkCombos();
             updatePowerDisplay();
         }
 
         function checkWin() {
             if (playerScore >= WINNING_SCORE || aiScore >= WINNING_SCORE) {
-                gameOver = true;
-                gameRunning = false;
+                gameOver = true; gameRunning = false;
             }
         }
 
-        function drawAtariRect(x, y, w, h, color) {
-            ctx.fillStyle = color;
-            ctx.fillRect(Math.floor(x), Math.floor(y), w, h);
-        }
-
-        function drawAtariText(text, x, y, size, color) {
-            ctx.fillStyle = color;
-            ctx.font = `${size}px "Courier New", monospace`;
-            ctx.textAlign = 'center';
-            ctx.fillText(text, x, y);
-        }
-
+        // ── Drawing ───────────────────────────────────────────────────
         function draw() {
             ctx.fillStyle = '#000';
-            ctx.fillRect(0, 0, W, H);
+            ctx.fillRect(0, 0, GW, GH);
 
-            ctx.strokeStyle = '#fff';
-            ctx.lineWidth = 2;
+            // Center line
+            ctx.strokeStyle = '#fff'; ctx.lineWidth = 2;
             ctx.setLineDash([20, 10]);
-            ctx.beginPath();
-            ctx.moveTo(W / 2, 0);
-            ctx.lineTo(W / 2, H);
-            ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(GW / 2, 0); ctx.lineTo(GW / 2, GH); ctx.stroke();
             ctx.setLineDash([]);
 
+            // Border
             ctx.fillStyle = '#fff';
-            ctx.fillRect(0, 0, W, 4);
-            ctx.fillRect(0, H - 4, W, 4);
-            ctx.fillRect(0, 0, 4, H);
-            ctx.fillRect(W - 4, 0, 4, H);
+            ctx.fillRect(0, 0, GW, 4); ctx.fillRect(0, GH - 4, GW, 4);
+            ctx.fillRect(0, 0, 4, GH); ctx.fillRect(GW - 4, 0, 4, GH);
 
-            drawAtariRect(20, playerY, PADDLE_W, PADDLE_H, '#fff');
-            drawAtariRect(24, playerY + 5, 4, PADDLE_H - 10, '#0f0');
+            // Player paddle
+            ctx.fillStyle = '#fff'; ctx.fillRect(20, playerY, PADDLE_W, PADDLE_H);
+            ctx.fillStyle = '#0f0'; ctx.fillRect(24, playerY + 5, 4, PADDLE_H - 10);
 
-            drawAtariRect(W - 32, aiY, PADDLE_W, PADDLE_H, '#fff');
-            drawAtariRect(W - 28, aiY + 5, 4, PADDLE_H - 10, '#f00');
+            // AI paddle
+            ctx.fillStyle = '#fff'; ctx.fillRect(GW - 32, aiY, PADDLE_W, PADDLE_H);
+            ctx.fillStyle = '#f00'; ctx.fillRect(GW - 28, aiY + 5, 4, PADDLE_H - 10);
 
+            // Ball
             let ballColor = '#fff';
             if (powerUpActive) ballColor = '#ff0';
             else if (curveActive) ballColor = '#0f0';
 
             if (powerUpActive || curveActive) {
-                const trailCount = powerUpActive ? 3 : 2;
-                for (let i = trailCount; i > 0; i--) {
-                    const alpha = 1 - (i / (trailCount + 1));
-                    ctx.globalAlpha = alpha * 0.5;
-                    drawAtariRect(
+                const tc = powerUpActive ? 3 : 2;
+                for (let i = tc; i > 0; i--) {
+                    ctx.globalAlpha = (1 - i / (tc + 1)) * 0.5;
+                    ctx.fillStyle = ballColor;
+                    ctx.fillRect(
                         ballX - BALL_SIZE / 2 - ballVX * i * 0.5,
                         ballY - BALL_SIZE / 2 - ballVY * i * 0.5,
-                        BALL_SIZE - i,
-                        BALL_SIZE - i,
-                        ballColor
+                        BALL_SIZE - i, BALL_SIZE - i
                     );
                 }
                 ctx.globalAlpha = 1;
             }
-            drawAtariRect(ballX - BALL_SIZE / 2, ballY - BALL_SIZE / 2, BALL_SIZE, BALL_SIZE, ballColor);
+            ctx.fillStyle = ballColor;
+            ctx.fillRect(ballX - BALL_SIZE / 2, ballY - BALL_SIZE / 2, BALL_SIZE, BALL_SIZE);
 
+            // Overlays
             if (paused) {
-                ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
-                ctx.fillRect(0, 0, W, H);
-                drawAtariText('PAUSED', W / 2, H / 2, 32, '#0f0');
-                drawAtariText('PRESS SPACE', W / 2, H / 2 + 40, 16, '#0f0');
+                ctx.fillStyle = 'rgba(0,0,0,0.8)'; ctx.fillRect(0, 0, GW, GH);
+                drawText('PAUSED', GW / 2, GH / 2, 32, '#0f0');
+                drawText('TAP TO RESUME', GW / 2, GH / 2 + 40, 16, '#0f0');
             }
 
             if (gameOver) {
-                ctx.fillStyle = 'rgba(0, 0, 0, 0.85)';
-                ctx.fillRect(0, 0, W, H);
-                const winner = playerScore >= WINNING_SCORE ? 'YOU WIN!' : 'AI WINS!';
-                const winColor = playerScore >= WINNING_SCORE ? '#0f0' : '#f00';
-                drawAtariText(winner, W / 2, H / 2 - 20, 32, winColor);
-                drawAtariText('CLICK TO PLAY AGAIN', W / 2, H / 2 + 30, 14, '#fff');
+                ctx.fillStyle = 'rgba(0,0,0,0.85)'; ctx.fillRect(0, 0, GW, GH);
+                const win = playerScore >= WINNING_SCORE;
+                drawText(win ? 'YOU WIN! 🎉' : 'AI WINS!', GW / 2, GH / 2 - 20, 32, win ? '#0f0' : '#f00');
+                drawText(`${playerScore} — ${aiScore}`, GW / 2, GH / 2 + 20, 24, '#fff');
+                drawText('TAP TO PLAY AGAIN', GW / 2, GH / 2 + 60, 14, '#fff');
             }
 
             if (!gameRunning && !gameOver) {
-                ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-                ctx.fillRect(0, 0, W, H);
-                drawAtariText('PING PONG', W / 2, H / 2 - 60, 36, '#fff');
-                
-                let yPos = H / 2 - 10;
-                drawAtariText('MOVE MOUSE TO CONTROL PADDLE', W / 2, yPos, 12, '#0f0');
-                yPos += 30;
-                drawAtariText('POWER SHOTS:', W / 2, yPos, 12, '#ff0');
-                yPos += 20;
-                for (const combo of POWER_COMBOS) {
-                    drawAtariText(combo.label, W / 2, yPos, 13, combo.color);
-                    yPos += 16;
-                }
-                yPos += 10;
-                drawAtariText(CURVE_COMBO.label, W / 2, yPos, 13, CURVE_COMBO.color);
-                yPos += 30;
-                drawAtariText('CLICK OR ENTER TO START', W / 2, yPos, 14, '#fff');
+                ctx.fillStyle = 'rgba(0,0,0,0.7)'; ctx.fillRect(0, 0, GW, GH);
+                drawText('PING PONG', GW / 2, GH / 2 - 80, 40, '#fff');
+                drawText('DRAG TO CONTROL YOUR PADDLE', GW / 2, GH / 2 - 20, 13, '#0f0');
+                drawText('TAP POWER BUTTONS FOR SPECIAL SHOTS', GW / 2, GH / 2 + 10, 11, '#ff0');
+                drawText('FIRST TO 7 WINS', GW / 2, GH / 2 + 36, 12, '#888');
+                drawText('TAP TO START', GW / 2, GH / 2 + 80, 18, '#fff');
             }
+        }
+
+        function drawText(text, x, y, size, color) {
+            ctx.fillStyle = color;
+            ctx.font = `bold ${size}px "Courier New", monospace`;
+            ctx.textAlign = 'center';
+            ctx.fillText(text, x, y);
         }
 
         function gameLoop() {
             if (!gameRunning) return;
-            update();
-            draw();
+            update(); draw();
             requestAnimationFrame(gameLoop);
         }
 

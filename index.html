@@ -258,7 +258,10 @@ function resizeCanvas() {
 }
 window.addEventListener('resize', () => { resizeCanvas(); });
 // Use timeout to let layout settle after orientation change
-window.addEventListener('orientationchange', () => setTimeout(resizeCanvas, 150));
+window.addEventListener('orientationchange', () => {
+    setTimeout(resizeCanvas, 150);
+    gyroBase = null; // recalibrate gyro for new orientation
+});
 setTimeout(resizeCanvas, 50);
 
 // ── Game state ──────────────────────────────────────────────────────────────
@@ -320,16 +323,37 @@ function updateGyroButtons() {
     });
 }
 
+// Reset gyro calibration whenever orientation changes
+let lastOrientation = null;
+function getOrientation() {
+    return window.matchMedia('(orientation: landscape)').matches ? 'landscape' : 'portrait';
+}
+
 window.addEventListener('deviceorientation', (e) => {
     if (!gyroEnabled) return;
-    const isLandscape = window.matchMedia('(orientation: landscape)').matches;
+    const orient = getOrientation();
 
-    // In landscape: tilt = beta (phone tilted fwd/back = paddle up/down)
-    // In portrait:  tilt = gamma (phone tilted left/right = paddle up/down)
-    const rawTilt = isLandscape ? (e.beta ?? 0) : (e.gamma ?? 0);
+    // Reset baseline if orientation changed
+    if (orient !== lastOrientation) {
+        gyroBase = null;
+        lastOrientation = orient;
+    }
+
+    let rawTilt;
+    if (orient === 'landscape') {
+        // Phone on its side (home button left or right):
+        // beta = tilt around the phone's long axis (near/far) → maps to paddle Y
+        // Holding phone flat = beta ~0; tilt top away = positive; tilt top toward = negative
+        rawTilt = e.beta ?? 0;
+    } else {
+        // Phone upright (portrait):
+        // gamma = tilt around vertical axis (left/right lean) → maps to paddle Y
+        // Tilting right = positive gamma; tilting left = negative
+        rawTilt = e.gamma ?? 0;
+    }
 
     if (gyroBase === null) gyroBase = rawTilt; // calibrate to starting position
-    const delta = rawTilt - gyroBase;          // degrees from neutral
+    const delta = rawTilt - gyroBase;           // degrees from neutral
     const norm  = Math.max(-1, Math.min(1, delta / GYRO_RANGE));
     gyroValue   = GH / 2 + norm * (GH / 2 - PADDLE_H / 2);
 });
